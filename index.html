@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>画像9分割アプリ</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 0.9em;
+        }
+
+        .drop-zone {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 60px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #f8f9ff;
+        }
+
+        .drop-zone:hover {
+            border-color: #764ba2;
+            background: #f0f2ff;
+            transform: scale(1.02);
+        }
+
+        .drop-zone.dragover {
+            border-color: #764ba2;
+            background: #e8ebff;
+            transform: scale(1.05);
+        }
+
+        .drop-zone-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+
+        .drop-zone-text {
+            font-size: 1.2em;
+            color: #667eea;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .drop-zone-subtext {
+            color: #999;
+            font-size: 0.9em;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .preview-container {
+            margin-top: 30px;
+            display: none;
+        }
+
+        .preview-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .preview-item {
+            aspect-ratio: 1;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .preview-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .preview-item-number {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            background: rgba(102, 126, 234, 0.9);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 5px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+
+        .download-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .download-btn:active {
+            transform: translateY(0);
+        }
+
+        .info {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9ff;
+            border-radius: 10px;
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .info-title {
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .footer {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 0.85em;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .footer a {
+            color: rgba(255, 255, 255, 0.9);
+            text-decoration: none;
+            margin: 0 10px;
+            transition: color 0.3s;
+        }
+
+        .footer a:hover {
+            color: white;
+            text-decoration: underline;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+            animation: slideIn 0.3s;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-close {
+            position: absolute;
+            right: 20px;
+            top: 20px;
+            font-size: 28px;
+            font-weight: bold;
+            color: #aaa;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+
+        .modal-close:hover {
+            color: #000;
+        }
+
+        .modal h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+
+        .modal h3 {
+            color: #333;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+
+        .modal p,
+        .modal li {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+
+        .modal ul {
+            margin-left: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🎨 画像9分割</h1>
+        <p class="subtitle">画像を3×3グリッドで9分割します</p>
+
+        <div class="drop-zone" id="dropZone">
+            <div class="drop-zone-icon">📸</div>
+            <div class="drop-zone-text">画像をドラッグ&ドロップ</div>
+            <div class="drop-zone-subtext">またはクリックして選択</div>
+        </div>
+
+        <input type="file" id="fileInput" accept="image/*">
+
+        <div class="loading" id="loading">
+            <div class="loading-spinner"></div>
+            <div>処理中...</div>
+        </div>
+
+        <div class="preview-container" id="previewContainer">
+            <div class="preview-grid" id="previewGrid"></div>
+            <button class="download-btn" id="downloadBtn">
+                💾 9枚の画像をダウンロード (ZIP)
+            </button>
+        </div>
+
+        <div class="info">
+            <div class="info-title">📋 仕様</div>
+            <ul style="margin-left: 20px; margin-top: 5px;">
+                <li>形式: PNG (最高品質)</li>
+                <li>分割: 3×3 グリッド</li>
+                <li>処理: 完全にブラウザ内で実行</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="footer">
+        <a href="#" id="termsLink">利用規約</a> |
+        <a href="#" id="privacyLink">プライバシーポリシー</a>
+        <div style="margin-top: 10px;">© 2025 画像9分割アプリ</div>
+    </div>
+
+    <!-- 利用規約モーダル -->
+    <div id="termsModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" id="termsClose">&times;</span>
+            <h2>📜 利用規約</h2>
+
+            <h3>第1条（適用）</h3>
+            <p>本利用規約は、本サービス「画像9分割アプリ」（以下「本サービス」）の利用条件を定めるものです。本サービスをご利用いただく際には、本規約に同意いただいたものとみなします。</p>
+
+            <h3>第2条（サービス内容）</h3>
+            <p>本サービスは、ユーザーがアップロードした画像を3×3グリッドで9分割し、PNG形式でダウンロードできる無料のWebアプリケーションです。</p>
+
+            <h3>第3条（プライバシー保護）</h3>
+            <ul>
+                <li>本サービスは完全にブラウザ内で動作します</li>
+                <li>アップロードされた画像はサーバーに送信されません</li>
+                <li>すべての処理はお使いのデバイス上で完結します</li>
+                <li>画像データは一切保存・収集されません</li>
+            </ul>
+
+            <h3>第4条（著作権）</h3>
+            <ul>
+                <li>アップロードされた画像の著作権は、ユーザーに帰属します</li>
+                <li>本サービスは画像の著作権を主張しません</li>
+                <li>分割後の画像についても、元の画像の著作権者に権利が帰属します</li>
+            </ul>
+
+            <h3>第5条（禁止事項）</h3>
+            <p>本サービスの利用にあたり、以下の行為を禁止します：</p>
+            <ul>
+                <li>法令または公序良俗に違反する行為</li>
+                <li>他者の著作権、商標権等の知的財産権を侵害する行為</li>
+                <li>本サービスの運営を妨害する行為</li>
+                <li>本サービスを不正な目的で使用する行為</li>
+            </ul>
+
+            <h3>第6条（免責事項）</h3>
+            <ul>
+                <li>本サービスは「現状有姿」で提供されます</li>
+                <li>本サービスの利用により生じた損害について、一切の責任を負いません</li>
+                <li>本サービスの中断、終了、変更について事前の通知なく行う場合があります</li>
+                <li>分割された画像の品質について保証しません</li>
+            </ul>
+
+            <h3>第7条（規約の変更）</h3>
+            <p>本規約は、予告なく変更される場合があります。変更後の規約は、本サービス上に掲載された時点で効力を生じます。</p>
+
+            <p style="margin-top: 20px; text-align: right; color: #999;">最終更新日: 2025年12月20日</p>
+        </div>
+    </div>
+
+    <!-- プライバシーポリシーモーダル -->
+    <div id="privacyModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" id="privacyClose">&times;</span>
+            <h2>🔒 プライバシーポリシー</h2>
+
+            <h3>1. 個人情報の収集について</h3>
+            <p>本サービスは、一切の個人情報を収集しません。</p>
+
+            <h3>2. 画像データの取り扱い</h3>
+            <ul>
+                <li><strong>サーバーへの送信なし</strong>: アップロードされた画像は、お使いのブラウザ内でのみ処理されます</li>
+                <li><strong>保存なし</strong>: 画像データは一切保存されません</li>
+                <li><strong>第三者への提供なし</strong>: 画像データが第三者に提供されることはありません</li>
+                <li><strong>完全なローカル処理</strong>: すべての処理はお使いのデバイス上で完結します</li>
+            </ul>
+
+            <h3>3. Cookie・ローカルストレージ</h3>
+            <p>本サービスは、Cookie、ローカルストレージ、その他のブラウザストレージ技術を使用しません。</p>
+
+            <h3>4. アクセス解析ツール</h3>
+            <p>本サービスは、現時点でアクセス解析ツール（Google Analytics等）を使用していません。</p>
+
+            <h3>5. セキュリティ</h3>
+            <ul>
+                <li>本サービスはHTTPS通信で提供されます（デプロイ後）</li>
+                <li>画像処理は完全にクライアントサイドで行われるため、通信による情報漏洩のリスクはありません</li>
+            </ul>
+
+            <h3>6. 技術的な仕組み</h3>
+            <p>本サービスは以下の技術を使用しています：</p>
+            <ul>
+                <li><strong>HTML5 Canvas API</strong>: 画像の分割処理</li>
+                <li><strong>File API</strong>: ローカルファイルの読み込み</li>
+                <li><strong>JSZip</strong>: ZIP形式でのダウンロード</li>
+            </ul>
+            <p>これらはすべてブラウザ内で動作し、外部サーバーとの通信は発生しません。</p>
+
+            <h3>7. お問い合わせ</h3>
+            <p>本プライバシーポリシーに関するお問い合わせは、GitHubのIssueにてお願いします。</p>
+
+            <p style="margin-top: 20px; text-align: right; color: #999;">最終更新日: 2025年12月20日</p>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const previewContainer = document.getElementById('previewContainer');
+        const previewGrid = document.getElementById('previewGrid');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const loading = document.getElementById('loading');
+
+        let splitImages = [];
+
+        // ドラッグ&ドロップイベント
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                processImage(file);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                processImage(file);
+            }
+        });
+
+        async function processImage(file) {
+            loading.style.display = 'block';
+            previewContainer.style.display = 'none';
+            previewGrid.innerHTML = '';
+            splitImages = [];
+
+            const img = new Image();
+            const reader = new FileReader();
+
+            reader.onload = (e) => {
+                img.src = e.target.result;
+            };
+
+            img.onload = () => {
+                splitImageIntoNine(img);
+                loading.style.display = 'none';
+                previewContainer.style.display = 'block';
+            };
+
+            reader.readAsDataURL(file);
+        }
+
+        function splitImageIntoNine(img) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+
+            const panelWidth = Math.floor(img.width / 3);
+            const panelHeight = Math.floor(img.height / 3);
+
+            canvas.width = panelWidth;
+            canvas.height = panelHeight;
+
+            let panelNum = 1;
+
+            for (let row = 0; row < 3; row++) {
+                for (let col = 0; col < 3; col++) {
+                    // キャンバスをクリア
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                    // 画像の一部を切り取り
+                    const sx = col * panelWidth;
+                    const sy = row * panelHeight;
+
+                    ctx.drawImage(
+                        img,
+                        sx, sy, panelWidth, panelHeight,
+                        0, 0, panelWidth, panelHeight
+                    );
+
+                    // PNGとして保存
+                    const dataUrl = canvas.toDataURL('image/png');
+                    splitImages.push({
+                        number: panelNum,
+                        dataUrl: dataUrl
+                    });
+
+                    // プレビューを作成
+                    const previewItem = document.createElement('div');
+                    previewItem.className = 'preview-item';
+                    previewItem.innerHTML = `
+                        <img src="${dataUrl}" alt="Panel ${panelNum}">
+                        <div class="preview-item-number">${panelNum}</div>
+                    `;
+                    previewGrid.appendChild(previewItem);
+
+                    panelNum++;
+                }
+            }
+        }
+
+        downloadBtn.addEventListener('click', async () => {
+            const zip = new JSZip();
+
+            splitImages.forEach((img) => {
+                const base64Data = img.dataUrl.split(',')[1];
+                zip.file(`panel_${String(img.number).padStart(2, '0')}.png`, base64Data, { base64: true });
+            });
+
+            const blob = await zip.generateAsync({ type: 'blob' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'split_images.zip';
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        // モーダル機能
+        const termsModal = document.getElementById('termsModal');
+        const privacyModal = document.getElementById('privacyModal');
+        const termsLink = document.getElementById('termsLink');
+        const privacyLink = document.getElementById('privacyLink');
+        const termsClose = document.getElementById('termsClose');
+        const privacyClose = document.getElementById('privacyClose');
+
+        termsLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            termsModal.style.display = 'block';
+        });
+
+        privacyLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            privacyModal.style.display = 'block';
+        });
+
+        termsClose.addEventListener('click', () => {
+            termsModal.style.display = 'none';
+        });
+
+        privacyClose.addEventListener('click', () => {
+            privacyModal.style.display = 'none';
+        });
+
+        window.addEventListener('click', (e) => {
+            if (e.target === termsModal) {
+                termsModal.style.display = 'none';
+            }
+            if (e.target === privacyModal) {
+                privacyModal.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+
+</html>
